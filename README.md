@@ -3,7 +3,7 @@
 CPU-BOPs 是一组用于测试CPU平台上负载程序消耗的BOPs值（基本操作数）的实验脚本。
 
 该项目运行在 Linux 环境下，通过 cgroup 对负载程序施加 CPU / 内存限制，
-并在运行过程中采集 CPU 使用率和 Bops 指标，用于分析不同资源限制和负载强度下
+并在运行过程中采集 CPU 使用率和 BOPs 指标，用于分析不同资源限制和负载强度下
 程序的 CPU 行为表现。
 
 
@@ -35,7 +35,7 @@ CPU-BOPs 提供了一种相对简单、可复现的方式来完成上述测试�
 ## 目录结构
 
 ```text
-CPU-Bops/
+CPU-BOPs/
 ├── collector.sh
 │   负责参数解析和实验流程控制
 │
@@ -60,7 +60,7 @@ CPU-Bops/
 
 - Linux（CentOS / Ubuntu）
 - bash
-- Bops
+- BOPs
 - sysstat（sar）
 - cgroup-tools
 - 需要 sudo 权限
@@ -107,7 +107,7 @@ upload-file-path 用于指定需要测试的负载脚本。
 
 实验基本信息
 
-Bops 采集的 CPU 指标
+BOPs 采集的 CPU 指标
 
 CPU 使用率时间序列
 
@@ -118,6 +118,7 @@ CPU 使用率时间序列
 说明
 该项目更偏向实验脚本集合，主要用于系统性能测试和研究场景。
 如果需要更通用的负载测试能力，需要在此基础上进一步扩展。
+
 
 
 
