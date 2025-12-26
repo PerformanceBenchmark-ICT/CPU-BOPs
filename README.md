@@ -90,7 +90,7 @@ Windows PE 格式的 .exe 文件
 
 依赖 Windows 内核或 Windows 运行时的程序
 
-这是由于 CPU-BOPs 基于 Linux 内核能力（cgroup、perf），属于操作系统层面的限制。
+这是由于 CPU-BOPs 基于 Linux 内核能力（cgroup），属于操作系统层面的限制。
 
 
 
@@ -104,7 +104,7 @@ CPU-BOPs/
 ├── agent_executor.sh
 │   核心执行器：
 │   - cgroup 配置
-│   - perf / CPU 使用率监控
+│   -CPU 使用率监控
 │   - 负载进程管理与清理
 │
 ├── cpuUsages.sh
@@ -140,7 +140,7 @@ CPU-BOPs/
 | `--cpu-limit-pct`     | CPU 使用上限（百分比）           | 100 |
 | `--mem-limit-pct`     | 内存使用上限（百分比）             | 100 |
 | `--monitor-duration`  | 负载**最大允许运行时间（timeout）** | 60s |
-| `--collect-frequency` | CPU 使用率 / perf 采样间隔     | 1s  |
+| `--collect-frequency` | CPU 使用率 / 采样间隔     | 1s  |
 
 > 说明：
 >
@@ -200,7 +200,7 @@ bash collector.sh \
 
 实验结束后，会在输出目录生成多类日志文件，包括：
 
-* BOPs / perf 采样数据
+* BOPs 采样数据
 * CPU 使用率时间序列
 * 负载程序的 stdout / stderr
 * 实验运行时长信息
@@ -217,6 +217,7 @@ CPU-BOPs 是一个 **面向系统性能测量与研究场景的实验工具**，
 * 行为可复现
 * 资源可控
 * 数据可分析
+
 
 
 
