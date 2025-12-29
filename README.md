@@ -130,22 +130,19 @@ bash collector.sh \
 
 ##输出结果展示：
 
-```text
-started on 2025-12-29 11:06:41
-# started on Mon Dec 29 11:06:42 2025
+<details>
+<summary><b>Perf stat raw output (click to expand)</b></summary>
 
-     1.002034594,12155448696,,uops_executed.core,task_ramp_test,329729099,33.18,,
-     1.002034594,1675196566,,mem_inst_retired.all_stores,task_ramp_test,330722691,33.28,,
-     1.002034594,3532382411,,mem_inst_retired.all_loads,task_ramp_test,331739696,33.38,,
-     1.002034594,2283232066,,br_inst_retired.all_branches,task_ramp_test,332880227,33.50,,
-     1.002034594,8693488,,fp_arith_inst_retired.scalar_double,task_ramp_test,332104389,33.42,,
-     1.002034594,0,,fp_arith_inst_retired.scalar_single,task_ramp_test,332059617,33.42,,
-     1.002034594,0,,fp_arith_inst_retired.128b_packed_double,task_ramp_test,332052099,33.41,,
-     1.002034594,0,,fp_arith_inst_retired.128b_packed_single,task_ramp_test,331911529,33.40,,
-     1.002034594,0,,fp_arith_inst_retired.256b_packed_double,task_ramp_test,331910540,33.40,,
-     1.002034594,0,,fp_arith_inst_retired.256b_packed_single,task_ramp_test,331491882,33.34,,
-     1.002034594,0,,fp_arith_inst_retired.512b_packed_double,task_ramp_test,330541389,33.24,,
-     1.002034594,0,,fp_arith_inst_retired.512b_packed_single,task_ramp_test,329600293,33.15,,
+```csv
+
+
+time,value,,event,task,pid,cpu,,
+1.002034594,12155448696,,uops_executed.core,task_ramp_test,329729099,33.18,,
+1.002034594,1675196566,,mem_inst_retired.all_stores,task_ramp_test,330722691,33.28,,
+1.002034594,3532382411,,mem_inst_retired.all_loads,task_ramp_test,331739696,33.38,,
+1.002034594,2283232066,,br_inst_retired.all_branches,task_ramp_test,332880227,33.50,,
+1.002034594,8693488,,fp_arith_inst_retired.scalar_double,task_ramp_test,332104389,33.42,,
+
 
 ```
 
@@ -171,6 +168,7 @@ CPU-BOPs 是一个 **面向系统性能测量与研究场景的实验工具**，
 * 行为可复现
 * 资源可控
 * 数据可分析
+
 
 
 
