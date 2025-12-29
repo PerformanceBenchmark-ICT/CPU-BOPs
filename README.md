@@ -147,7 +147,9 @@ bops_x86_test_min.txt：
      2.003076967,1800628262,,mem_inst_retired.all_stores,task_ramp_test,333328293,33.42,,
      2.003076967,3797318184,,mem_inst_retired.all_loads,task_ramp_test,333400761,33.43,,
 ```
+
 Terminal：
+
 {
   "arch": "x86",
   
@@ -194,6 +196,7 @@ CPU-BOPs 是一个 **面向系统性能测量与研究场景的实验工具**，
 * 行为可复现
 * 资源可控
 * 数据可分析
+
 
 
 
