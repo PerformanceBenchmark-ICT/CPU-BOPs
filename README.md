@@ -171,8 +171,6 @@ time,value,unit,event,command,pid,cpu,metric_value,metric_unit
 | 5  | command      | `task_ramp_test`     | 被监控的进程名               |
 | 6  | pid          | `329729099`          | 进程 PID                |
 | 7  | cpu          | `33.18`              | 采样发生的 CPU（或 CPU 平均编号） |
-| 8  | metric_value | *(空)*                | perf 计算的派生指标（你没用 -M）  |
-| 9  | metric_unit  | *(空)*                | 派生指标单位                |
 
 
 
@@ -186,6 +184,7 @@ CPU-BOPs 是一个 **面向系统性能测量与研究场景的实验工具**，
 * 行为可复现
 * 资源可控
 * 数据可分析
+
 
 
 
