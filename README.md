@@ -1,6 +1,6 @@
 # CPU-BOPs
 
-CPU-BOPs 是一组用于在 Linux CPU 平台上测量负载程序运行周期消耗的BOPs（Basic Operations，基本操作数）指标** 的脚本工具。
+CPU-BOPs 是一组用于在 Linux CPU 平台上测量负载程序运行周期消耗的BOPs（Basic Operations，基本操作数）指标 的脚本工具。
 
 该项目通过非入侵的方式，监测被测量的应用程序的运行生命周期，按照指定频率采集BOPs指标关联的指令级的事件操作数，通过计算，最终计算出BOPs值。
 
@@ -166,7 +166,7 @@ CPU-BOPs/
 ```bash
 bash collector.sh \
   --id=test_min \
-  --upload-file-path=./my_workload \
+  --upload-file-path=./test.py \
   --output-path=/tmp/test_min.json \
   --monitor-duration=30s
 ```
@@ -204,6 +204,7 @@ CPU-BOPs 是一个 **面向系统性能测量与研究场景的实验工具**，
 * 行为可复现
 * 资源可控
 * 数据可分析
+
 
 
 
