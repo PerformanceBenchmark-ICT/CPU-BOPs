@@ -124,11 +124,7 @@ bash collector.sh \
   --monitor-duration=30s
 ```
 
-适用于：
 
-* ELF 二进制
-* Python / Shell 脚本
-* shebang 可执行脚本
 
 ---
 
@@ -157,6 +153,7 @@ CPU-BOPs 是一个 **面向系统性能测量与研究场景的实验工具**，
 * 行为可复现
 * 资源可控
 * 数据可分析
+
 
 
 
