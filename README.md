@@ -60,7 +60,7 @@ openstack server show <云主机uuid> |grep OS-EXT-SRV-ATTR:instance_name
 
 ## 支持的负载类型
 
-CPU-BOPs **支持任意 Linux 可执行负载**
+CPU-BOPs支持的负载程序可以是 **任意 Linux 可执行文件**
 
 
 ## 工具脚本目录结构
@@ -157,6 +157,7 @@ CPU-BOPs 是一个 **面向系统性能测量与研究场景的实验工具**，
 * 行为可复现
 * 资源可控
 * 数据可分析
+
 
 
 
