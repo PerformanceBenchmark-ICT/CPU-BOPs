@@ -4,8 +4,6 @@ CPU-BOPs 是一组用于在 Linux CPU 平台上测量负载程序运行周期消
 
 该项目通过非入侵的方式，监测被测量的应用程序的运行生命周期，按照指定频率采集BOPs指标关联的指令级的事件操作数，通过计算，最终计算出BOPs值。
 
-。
-
 ## 环境依赖 (Prerequisites)
 为了确保 CPU-BOPs 能够正常运行，宿主机必须满足以下软硬件要求。
 
@@ -23,7 +21,6 @@ CPU-BOPs 是一组用于在 Linux CPU 平台上测量负载程序运行周期消
 | **cgroup-tools** | 管理资源隔离组 (`cgcreate`) | `libcgroup-tools` | `cgroup-tools` |
 
 
-
 ## 项目解决的问题
 
 在系统性能实验与算力度量中，常常需要回答以下问题：
@@ -33,10 +30,6 @@ CPU-BOPs 是一组用于在 Linux CPU 平台上测量负载程序运行周期消
 
 CPU-BOPs 提供了一种 **轻量、可复现、面向真实负载的实验执行与采集方案**
 
----
-
-
-## 当前限制
 
 
 ## 虚拟机访问权限开通
@@ -115,14 +108,6 @@ Python 脚本（.py）
 #!/usr/bin/env python3
 while True:
     pass
-
-不支持的负载类型
-
-Windows PE 格式的 .exe 文件
-
-依赖 Windows 内核或 Windows 运行时的程序
-
-这是由于 CPU-BOPs 基于 Linux 内核能力（cgroup），属于操作系统层面的限制。
 
 
 
@@ -220,6 +205,7 @@ CPU-BOPs 是一个 **面向系统性能测量与研究场景的实验工具**，
 * 行为可复现
 * 资源可控
 * 数据可分析
+
 
 
 
