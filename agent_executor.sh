@@ -2,8 +2,6 @@
 set -euo pipefail
 export LC_ALL=C
 
-
-
 # 默认值
 CPU_LIMIT_PCT="100"
 MEM_LIMIT_PCT="100"
@@ -13,7 +11,6 @@ START_LOAD_PCT="0"
 END_LOAD_PCT="0"
 STEP_PCT="0"
 
-# --- 进程清理函数 (与 V6 相同) ---
 # --- 进程清理函数 (V18 Pro - 核弹级清理) ---
 cleanup() {
   echo ">>> [Cleanup] Triggered at $(date '+%H:%M:%S')..."
@@ -39,32 +36,8 @@ cleanup() {
     fi
   fi
 
-
   # ---------------------------------------------------------
-# 2. 停止 CPU/SAR 监控 (V18 Pro 修复版)
-  # ---------------------------------------------------------
-  if [[ -n "${CPU_PID:-}" ]]; then
-    echo "  -> Stopping CPU Monitor (PID $CPU_PID)..."
-    
-    # 1. 尝试获取进程组 ID (PGID)
-    # ps -o pgid= 会返回 PGID，setsid 启动的进程 PGID 通常等于 PID
-    PGID_C=$(ps -o pgid= -p "$CPU_PID" 2>/dev/null | tr -d ' ')
-    
-    # 2. 杀整个进程组 (关键！注意那个负号 -)
-    if [[ -n "$PGID_C" ]]; then
-       echo "     Killing Process Group -$PGID_C (includes sar/awk)"
-       kill -TERM -"$PGID_C" 2>/dev/null || true
-       sleep 0.5
-       kill -KILL -"$PGID_C" 2>/dev/null || true
-    else
-       # 如果获取不到组，就只能硬杀 PID，并尝试手动扫尾 sar
-       kill -KILL "$CPU_PID" 2>/dev/null || true
-       pkill -P "$CPU_PID" 2>/dev/null || true # 尝试杀子进程
-    fi
-  fi
-
-  # ---------------------------------------------------------
-  # 3. 停止负载 (重点！)
+  # 2. 停止负载 (重点！)
   # ---------------------------------------------------------
   echo "  -> Stopping Workload..."
   
@@ -96,7 +69,7 @@ cleanup() {
   fi
 
   # ---------------------------------------------------------
-  # 4. 删除 Cgroup
+  # 3. 删除 Cgroup
   # ---------------------------------------------------------
   if [[ -n "${CG:-}" ]]; then
     echo "  -> Deleting Cgroup: $CG"
@@ -120,10 +93,9 @@ cleanup() {
 # --- 绑定 trap ---
 trap cleanup EXIT INT TERM
 
-# --- 参数解析 (与 V6 相同) ---
+# --- 参数解析 ---
 while [[ $# -gt 0 ]]; do
   case "$1" in
-    # ... (所有参数解析保持不变) ...
     --id) ID="$2"; shift 2;;
     --id=*) ID="${1#*=}"; shift;;
     --upload-file-path) UPLOAD_FILE="$2"; shift 2;;
@@ -148,7 +120,7 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-# --- 基础校验 (与 V6 相同) ---
+# --- 基础校验 ---
 if [[ -z "${ID:-}" || -z "${UPLOAD_FILE:-}" || -z "${OUTPUT_PATH:-}" ]]; then
   echo "FATAL: missing --id / --upload-file-path / --output-path" >&2
   exit 1
@@ -158,7 +130,7 @@ if [[ ! -f "$UPLOAD_FILE" ]]; then
   exit 1
 fi
 
-# --- 时间解析 (与 V6 相同) ---
+# --- 时间解析 ---
 to_seconds() {
   local s="$1" unit val
   if [[ "$s" =~ ^([0-9]+)([smh])$ ]]; then
@@ -176,42 +148,40 @@ to_seconds() {
 to_millis() { echo $(( $(to_seconds "$1") * 1000 )); }
 
 
-# --- [!! 关键修改 1: 架构检测提前 !!] ---
+# --- 架构检测 ---
 echo "Detecting system architecture for filenames..."
-ARCH_RAW=$(uname -m) # 例如 x86_64 或 aarch64
+ARCH_RAW=$(uname -m)
 ARCH_NAME=""
 if [[ "$ARCH_RAW" == "x86_64" ]]; then
     ARCH_NAME="x86"
 elif [[ "$ARCH_RAW" == "aarch64" ]]; then
     ARCH_NAME="arm"
 else
-    ARCH_NAME="$ARCH_RAW" # 保留未知架构的原始名称
+    ARCH_NAME="$ARCH_RAW"
 fi
 
 
-# --- [!! 关键修改 2: 路径定义使用 $ARCH_NAME !!] ---
+# --- 路径定义 ---
 OUT_DIR="$(dirname "$(readlink -f "$OUTPUT_PATH")")"
 mkdir -p "$OUT_DIR"
 SAFE_ID="$(printf '%s' "$ID" | tr -c 'A-Za-z0-9_.-' '_')"
 
 BOP_FILE="$OUT_DIR/bops_${ARCH_NAME}_${SAFE_ID}.txt"
-CPU_FILE="$OUT_DIR/cpuUsage_${ARCH_NAME}_${SAFE_ID}.txt"
+# 注意：移除了 CPU_FILE 的定义
 STDOUT_FILE="$OUT_DIR/stdout_${ARCH_NAME}_${SAFE_ID}.log"
 STDERR_FILE="$OUT_DIR/stderr_${ARCH_NAME}_${SAFE_ID}.log"
 RUNTIME_FILE="$OUT_DIR/runtime_${ARCH_NAME}_${SAFE_ID}.txt"
 
-rm -f "$BOP_FILE" "$CPU_FILE" "$STDOUT_FILE" "$STDERR_FILE" "$RUNTIME_FILE"
+rm -f "$BOP_FILE" "$STDOUT_FILE" "$STDERR_FILE" "$RUNTIME_FILE"
 echo "# started on $(date '+%F %T')" > "$BOP_FILE"
 
 CG="task_${ID}"
 
-# --- Cgroup 设置 (与 V6 相同) ---
+# --- Cgroup 设置 ---
 echo "Setting up cgroup: $CG..."
-# 尝试挂载 perf_event 子系统 (有些系统默认没挂载)
 sudo mkdir -p /sys/fs/cgroup/perf_event
 sudo mount -t cgroup -o perf_event perf_event /sys/fs/cgroup/perf_event 2>/dev/null || true
 
-# 创建包含 perf_event 的组
 echo "Creating cgroup with perf_event subsystem..."
 sudo cgcreate -g cpu,memory,perf_event:"$CG" >/dev/null 2>&1 || echo "Warning: cgcreate failed (check if perf_event exists)"
 CPU_PERIOD_US=100000
@@ -237,36 +207,23 @@ fi
 echo "Cgroup setup complete: CPU ${CPU_LIMIT_PCT}% (${CPU_QUOTA_US} us), Mem ${MEM_LIMIT_PCT}% (${MEM_LIMIT_BYTES} bytes)"
 
 
-# --- [!! 关键修改 3: 重用 $ARCH_RAW (V10 逻辑) !!] ---
+# --- Perf 事件配置 ---
 echo "Configuring perf events for architecture: $ARCH_RAW ($ARCH_NAME)"
 
-# 声明变量
 declare ORIG_EVENTS
 declare FLOPS_EVENTS
-declare FINAL_EVENTS # 最终的事件列表
+declare FINAL_EVENTS
 
 if [[ "$ARCH_RAW" == "x86_64" ]]; then
     echo "Architecture: x86_64 (Intel/AMD). Using x86 perf events."
-    
-    # 1. x86 原始事件 (BOPs)
     ORIG_EVENTS="uops_executed.core,mem_inst_retired.all_stores,mem_inst_retired.all_loads,br_inst_retired.all_branches"
-    
-    # 2. x86 FLOPs 事件
     FLOPS_EVENTS="fp_arith_inst_retired.scalar_double,fp_arith_inst_retired.scalar_single,fp_arith_inst_retired.128b_packed_double,fp_arith_inst_retired.128b_packed_single,fp_arith_inst_retired.256b_packed_double,fp_arith_inst_retired.256b_packed_single,fp_arith_inst_retired.512b_packed_double,fp_arith_inst_retired.512b_packed_single"
-
-    # 合并 x86 列表
     FINAL_EVENTS="${ORIG_EVENTS},${FLOPS_EVENTS}"
 
 elif [[ "$ARCH_RAW" == "aarch64" ]]; then
     echo "Architecture: aarch64 (ARM/Kunpeng). Using ARM core events only."
-    
-    # 1. ARM 核心事件 (BOPs), 基于 full_perf_list (1).txt
     ORIG_EVENTS="inst_retired,br_retired,l1d_cache_refill,l1d_cache_wb"
-    
-    # 2. ARM FLOPs 事件
-    FLOPS_EVENTS="" # (根据您的要求)
-
-    # 仅使用核心事件
+    FLOPS_EVENTS=""
     FINAL_EVENTS="${ORIG_EVENTS}"
 
 else
@@ -275,63 +232,50 @@ else
 fi
 
 
-# --- [新增] 构造普适负载命令：支持 sh / py / ELF / shebang ---
+# --- 构造负载命令 ---
 build_load_cmd() {
   local p="$1"
   local ext="${p##*.}"
   local first2 firstline interp
 
-  # 统一成绝对路径（更稳）
   if command -v readlink >/dev/null 2>&1; then
     p="$(readlink -f "$p" 2>/dev/null || echo "$p")"
   fi
 
-  # 路径带空格会被后面的 LOAD_CMD=($LOAD_CMD_STR) 拆炸（不改其他逻辑前先强约束）
   if [[ "$p" == *" "* ]]; then
     echo "FATAL: workload path contains spaces: $p" >&2
     echo "Please move/rename it to a path without spaces." >&2
     return 11
   fi
 
-  # 0) Windows PE .exe 检测（文件头通常是 'MZ'）
   first2="$(head -c 2 "$p" 2>/dev/null || true)"
   if [[ "$first2" == "MZ" ]]; then
     echo "FATAL: Detected Windows PE executable (MZ header): $p" >&2
     echo "This environment runs Linux workloads only." >&2
-    echo "Please upload a Linux ELF executable or a script (.sh/.py/shebang)." >&2
     return 12
   fi
 
-  # 1) ELF 可执行：文件头是 0x7f 'E' 'L' 'F'
   if head -c 4 "$p" 2>/dev/null | od -An -t u1 2>/dev/null | tr -d ' \n' | grep -q '^127697670$'; then
     echo "$p"
     return 0
   fi
 
-  # 2) shebang 脚本：第一行以 #! 开头（不依赖后缀）
   firstline="$(head -n 1 "$p" 2>/dev/null || true)"
   if [[ "$firstline" == \#!* ]]; then
-    # 如果文件本身可执行：直接跑（交给内核按 shebang 调解释器）
     if [[ -x "$p" ]]; then
       echo "$p"
       return 0
     fi
-
-    # 否则：解析 shebang 的解释器来跑，避免 Permission denied
-    # 例：#!/usr/bin/env python3  -> /usr/bin/env python3
-    #     #!/bin/bash              -> /bin/bash
     interp="${firstline#\#!}"
-    interp="${interp#"${interp%%[![:space:]]*}"}"  # ltrim
+    interp="${interp#"${interp%%[![:space:]]*}"}"
     if [[ -n "$interp" ]]; then
       echo "$interp $p"
       return 0
     fi
-
     echo "FATAL: invalid shebang line in $p" >&2
     return 13
   fi
 
-  # 3) 仅按后缀兜底（最小集合：sh/py）
   if [[ "$ext" == "sh" ]]; then
     echo "bash $p"
     return 0
@@ -340,30 +284,24 @@ build_load_cmd() {
     return 0
   fi
 
-  # 4) 兜底：当作可执行文件直接跑（若不可执行会报错，stderr 会记录）
   echo "$p"
 }
 
 
-
-# --- 启动负载（普适） ---
+# --- 启动负载 ---
 echo "Starting workload: $UPLOAD_FILE"
-
-# 不改变参数体系：start/end/step 仍然解析，但对真实负载不再默认注入
 LOAD_CMD_STR="$(build_load_cmd "$UPLOAD_FILE")"
-
 # shellcheck disable=SC2206
 LOAD_CMD=($LOAD_CMD_STR)
 
-# ✅ 仅当使用示例爬坡负载时，才注入爬坡参数（保持 ramp 功能）
 if [[ "$(basename "$UPLOAD_FILE")" == "mock_load_script.sh" ]]; then
   echo "Detected mock_load_script.sh, injecting ramp args: start=$START_LOAD_PCT end=$END_LOAD_PCT step=$STEP_PCT"
   LOAD_CMD+=("--start-load-pct=$START_LOAD_PCT" "--end-load-pct=$END_LOAD_PCT" "--step-pct=$STEP_PCT")
 fi
 
 
-# --- 启动监控 (使用动态设置的变量) ---
-echo "Starting monitors (perf, cpuUsages)..."
+# --- 启动监控 ---
+echo "Starting monitors (perf only)..."
 START_TS_NANO=$(date +%s%N 2>/dev/null || echo "$(date +%s)000000000") 
 INTERVAL_MS="$(to_millis "$COLLECT_FREQUENCY")"
 
@@ -372,16 +310,13 @@ echo "Using event list: ${FINAL_EVENTS}"
 
 # [第一步] 先启动负载，并放入 Cgroup (后台运行)
 echo ">>> Phase 1: Launching workload into Cgroup '$CG'..."
-# 注意：这里必须和创建时的子系统列表一致
 sudo cgexec -g cpu,memory,perf_event:"$CG" "${LOAD_CMD[@]}" >"$STDOUT_FILE" 2>"$STDERR_FILE" &
 LOAD_PID=$!
 echo "Workload started with PID $LOAD_PID. Waiting 0.5s for cgroup population..."
 
-# 给内核一点时间把进程注册到 cgroup
 sleep 0.5
 
 # [第二步] 启动 Perf (-a -G 模式)
-# Perf 监控的时长 = 用户设定的时长 + 5秒缓冲
 PERF_DURATION=$(( $(to_seconds "$MONITOR_DURATION") + 5 ))
 
 echo ">>> Phase 2: Starting Perf Monitor (-a -G mode)..."
@@ -391,92 +326,46 @@ perf stat \
   -G "$CG" \
   -I "$INTERVAL_MS" -x , \
   -o "$BOP_FILE" --append \
-  -- sleep "$PERF_DURATION" &  # 让 perf 监控 sleep，实际上是在过滤 -G 指定的组
+  -- sleep "$PERF_DURATION" & 
 
 PERF_PID=$!
 echo "Perf PID: $PERF_PID, Monitoring Cgroup: $CG"
 
-
-if [[ -x ./cpuUsages.sh ]]; then
-  setsid ./cpuUsages.sh >"$CPU_FILE" 2>/dev/null &
-  CPU_PID=$!
-else
-  # [!! 关键修复 (V15) !!]
-  # 1. 确保 sysstat (sar) 已安装
-  if ! command -v sar &> /dev/null; then
-    echo "FATAL: 'sysstat' (sar) is missing. Please install it!" >&2
-    # 立即杀死已启动的 perf，避免僵尸进程
-    if [[ -n "${PERF_PID:-}" ]]; then kill -KILL "$PERF_PID" 2>/dev/null || true; fi
-    exit 5
-  fi
-
-  # 2. 启动 sar 进程 (替代 while loop)
-  # setsid: 放入新会话，方便清理
-  # stdbuf -oL: 强制行缓冲，确保实时输出
-  # sar -u 1: 每秒输出一次 CPU 使用率
-  # awk: 格式化输出为 "YYYY-MM-DD HH:MM:SS CPU Usage: XX.X%"
-  #      (注意：这里使用 date 命令获取当前时间，因为 sar 的时间戳格式可能不统一)
-  setsid stdbuf -oL sar -u 1 | awk -v date_cmd="date '+%Y-%m-%d %H:%M:%S'" \
-    'NR>3 && $NF ~ /[0-9.]+/ { 
-       cmd = date_cmd; cmd | getline ts; close(cmd);
-       usage = 100 - $NF; 
-       printf "%s CPU Usage: %.2f%%\n", ts, usage;
-       fflush(); 
-    }' >"$CPU_FILE" 2>/dev/null &
-  
-  CPU_PID=$!
-fi
+# [!! 注意：此处移除了 sar/cpuUsages 的启动逻辑 !!]
 
 
-
-
-
-
-
-
-
-
-
-
-# --- [修改] 分离负载时间和监控总时间 ---
+# --- 主循环 ---
 LOAD_SEC="$(to_seconds "$MONITOR_DURATION")"
-RUN_SEC=$((LOAD_SEC + 5))  # 强行给监控续命 5 秒 (Buffer)
+RUN_SEC=$((LOAD_SEC + 5))
 echo "All processes launched. Load will run for ${LOAD_SEC}s, Monitor will run for ${RUN_SEC}s..."
 
 START_TS=$(date +%s)
 WORK_DONE=0
-
-
-
-
-
-# --- 主循环 (V16 - 强制跑满时长) ---
-LOAD_ALIVE=1  # 标记负载是否还活着
+LOAD_ALIVE=1
 
 while :; do
-# 1. 检查时间
   NOW=$(date +%s)
   ELAPSED=$((NOW-START_TS))
   
-  # [新增逻辑 A] 时间到了 LOAD_SEC (30s)：只杀负载，不退循环
+  # 时间到了 LOAD_SEC：只杀负载监控，不退循环
   if (( ELAPSED >= LOAD_SEC )) && [[ "$LOAD_ALIVE" -eq 1 ]]; then
     echo ">>> Load duration reached (${LOAD_SEC}s). Stopping perf..."
     kill -INT "$PERF_PID" 2>/dev/null || true
     LOAD_ALIVE=0
   fi
 
-  # [修改逻辑 B] 时间到了 RUN_SEC (35s)：退出循环，触发 cleanup 杀监控
+  # 时间到了 RUN_SEC：退出循环
   if (( ELAPSED >= RUN_SEC )); then
     echo ">>> Total monitor buffer time reached (${RUN_SEC}s). Exiting."
     break
   fi
 
-  # 2. 检查负载状态 (仅做记录，不退出循环)
+  # 检查负载状态
   if [[ "$LOAD_ALIVE" -eq 1 ]]; then
       if ! kill -0 "$LOAD_PID" 2>/dev/null; then
         echo ">>> Workload finished early at ${ELAPSED}s (Process exited)."
         echo ">>> Continuing to monitor idle system until ${RUN_SEC}s..."
-        LOAD_ALIVE=0 # 标记为已死，不再检查
+        LOAD_ALIVE=0 
       fi
   fi
 
@@ -486,11 +375,8 @@ if [[ "$WORK_DONE" -eq 1 ]]; then
   wait "$LOAD_PID" 2>/dev/null || true
 fi
 
-# --- [!! 新增 (V11) !!] 计算并保存总运行时长 ---
+# --- 计算总运行时长 ---
 echo "Calculating total measured runtime..."
-
-# 从 bops.txt 中提取最后一个时间戳 (字段 1)
-# grep -v '^#' 确保我们跳过开头的 "# started on..."
 TOTAL_RUNTIME=$(grep -v '^#' "$BOP_FILE" | tail -n 1 | awk -F',' '{print $1}')
 
 if [[ -n "$TOTAL_RUNTIME" ]]; then
@@ -500,46 +386,28 @@ else
     echo "Warning: Could not determine total runtime from $BOP_FILE."
 fi
 
-# --- (清理现在由 trap 自动处理) ---
-
-
-# ----------------------------------------------------
-# ... (在 agent_executor.sh 结尾处) ...
 
 # ========================================================
 # [新增] 智能数据清洗：根据设定时长自动裁剪多余数据
 # ========================================================
 echo "Applying smart data trimming for duration: ${LOAD_SEC}s..."
 
-# 1. 清洗 Perf 数据 (基于时间戳过滤)
-# 逻辑：保留所有注释行(#开头) + 第一列时间戳 <= (LOAD_SEC + 0.5) 的数据行
+# 1. 清洗 Perf 数据
 if [[ -f "$BOP_FILE" ]]; then
-    # 计算阈值 (例如 30 -> 30.5)，防止浮点数微小误差导致丢数据
     TRIM_THRESHOLD=$(awk -v t="$LOAD_SEC" 'BEGIN {print t + 0.5}')
     
-    # 创建临时文件进行处理
     awk -F, -v limit="$TRIM_THRESHOLD" '
-        /^#/ { print; next }       # 保留 # 开头的注释行
-        $1 <= limit { print }      # 保留时间戳在范围内的数据
+        /^#/ { print; next }
+        $1 <= limit { print }
     ' "$BOP_FILE" > "${BOP_FILE}.tmp" && mv "${BOP_FILE}.tmp" "$BOP_FILE"
     
     echo "-> Trimmed Perf data to <= ${TRIM_THRESHOLD}s."
 fi
 
-# 2. 清洗 CPU 数据 (基于行数截断)
-# 逻辑：sar -u 1 理论上每秒一行。只保留前 LOAD_SEC 行。
-if [[ -f "$CPU_FILE" ]]; then
-    # 使用 head -n 截取前 N 行
-    # 注意：如果 cpuUsages.sh 启动慢了导致行数不足，head 也会保留所有现有行，不会报错
-    head -n "$LOAD_SEC" "$CPU_FILE" > "${CPU_FILE}.tmp" && mv "${CPU_FILE}.tmp" "$CPU_FILE"
-    
-    echo "-> Trimmed CPU data to first ${LOAD_SEC} lines."
-fi
+# [!! 注意：此处移除了 CPU 数据的清洗逻辑 !!]
 
-# 3. 修正 Runtime 文件
-# 因为我们切掉了尾巴，runtime 应该被修正为我们设定的目标时长，或者清洗后的最后一行时间
+# 2. 修正 Runtime 文件
 if [[ -f "$BOP_FILE" ]]; then
-    # 从清洗后的文件中提取最后一行的时间戳
     REAL_FINAL_TIME=$(grep -v '^#' "$BOP_FILE" | tail -n 1 | awk -F',' '{print $1}')
     if [[ -n "$REAL_FINAL_TIME" ]]; then
         echo "$REAL_FINAL_TIME" > "$RUNTIME_FILE"
