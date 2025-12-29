@@ -9,7 +9,7 @@ CPU-BOPs 是一组用于在 Linux CPU 平台上测量负载程序运行周期消
 ## 环境依赖 (Prerequisites)
 为了确保 CPU-BOPs 能够正常运行，宿主机必须满足以下软硬件要求。
 
-1. 操作系统与权限
+操作系统与权限
 操作系统：Linux (CentOS 7+, Ubuntu 18.04+, Debian 10+ 等主流发行版)。
 
 内核版本：建议 Kernel 3.10 以上（需支持 Cgroup v1）。
@@ -194,7 +194,7 @@ CPU-BOPs/
 bash collector.sh \
   --id=test_min \
   --upload-file-path=./test.py \
-  --output-path=/tmp/test_min.json \
+  --output-path=./test_min.json \
   --monitor-duration=30s
 ```
 
@@ -231,6 +231,7 @@ CPU-BOPs 是一个 **面向系统性能测量与研究场景的实验工具**，
 * 行为可复现
 * 资源可控
 * 数据可分析
+
 
 
 
