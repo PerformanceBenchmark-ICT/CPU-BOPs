@@ -35,6 +35,12 @@ cleanup() {
       sudo kill -TERM "$LOAD_PID" 2>/dev/null || true
   fi
 
+  # [新增] 清理占位进程
+  if [[ -n "${HOLDER_PID:-}" ]]; then
+      echo "  -> Killing Placeholder process..."
+      sudo kill -9 "$HOLDER_PID" 2>/dev/null || true
+  fi
+
   if [[ -n "${CG:-}" ]]; then
       PROCS_FILE="/sys/fs/cgroup/cpu/${CG}/cgroup.procs"
       if [[ ! -f "$PROCS_FILE" ]]; then
@@ -260,23 +266,24 @@ if [[ "$(basename "$UPLOAD_FILE")" == "mock_load_script.sh" ]]; then
   LOAD_CMD+=("--start-load-pct=$START_LOAD_PCT" "--end-load-pct=$END_LOAD_PCT" "--step-pct=$STEP_PCT")
 fi
 
+# --- [修改] 新的启动逻辑 ---
 echo "Starting monitors (perf only)..."
-START_TS_NANO=$(date +%s%N 2>/dev/null || echo "$(date +%s)000000000") 
+START_TS_NANO=$(date +%s%N 2>/dev/null || echo "$(date +%s)000000000")
 INTERVAL_MS="$(to_millis "$COLLECT_FREQUENCY")"
+LOAD_SEC="$(to_seconds "$MONITOR_DURATION")"
+RUN_SEC=$((LOAD_SEC + 5))
+PERF_DURATION=$((LOAD_SEC + 5))
 
-echo "Starting perf with events for $ARCH_NAME..."
 echo "Using event list: ${FINAL_EVENTS}"
 
-echo ">>> Phase 1: Launching workload into Cgroup '$CG'..."
-sudo cgexec -g cpu,memory,perf_event:"$CG" "${LOAD_CMD[@]}" >"$STDOUT_FILE" 2>"$STDERR_FILE" &
-LOAD_PID=$!
-echo "Workload started with PID $LOAD_PID. Waiting 0.5s for cgroup population..."
+# 1. 先启动占位进程 (确保 Cgroup 始终有进程，Perf 才能计数)
+echo ">>> Phase 0: Starting Placeholder..."
+sudo cgexec -g cpu,memory,perf_event:"$CG" sleep infinity &
+HOLDER_PID=$!
+sleep 0.1 
 
-sleep 0.5
-
-PERF_DURATION=$(( $(to_seconds "$MONITOR_DURATION") + 5 ))
-
-echo ">>> Phase 2: Starting Perf Monitor (-a -G mode)..."
+# 2. 启动 Perf (这时候 Cgroup 不为空，Perf 会成功挂载)
+echo ">>> Phase 1: Starting Perf Monitor..."
 perf stat \
   -e "${FINAL_EVENTS}" \
   -a \
@@ -284,43 +291,65 @@ perf stat \
   -I "$INTERVAL_MS" -x , \
   -o "$BOP_FILE" --append \
   -- sleep "$PERF_DURATION" & 
-
 PERF_PID=$!
-echo "Perf PID: $PERF_PID, Monitoring Cgroup: $CG"
+echo "Perf started PID: $PERF_PID"
 
-LOAD_SEC="$(to_seconds "$MONITOR_DURATION")"
-RUN_SEC=$((LOAD_SEC + 5))
-echo "All processes launched. Load will run for ${LOAD_SEC}s, Monitor will run for ${RUN_SEC}s..."
+# 3. 稍微等 Perf 准备好 (0.5秒)
+sleep 0.5
 
+# 4. 最后启动真正的任务
+echo ">>> Phase 2: Launching Actual Workload..."
+sudo cgexec -g cpu,memory,perf_event:"$CG" "${LOAD_CMD[@]}" >"$STDOUT_FILE" 2>"$STDERR_FILE" &
+LOAD_PID=$!
+echo "Workload started PID: $LOAD_PID. Load will run for ${LOAD_SEC}s..."
+# -------------------------
 START_TS=$(date +%s)
 WORK_DONE=0
 LOAD_ALIVE=1
+
+# --- 位于 agent_executor.sh 底部 ---
 
 while :; do
   NOW=$(date +%s)
   ELAPSED=$((NOW-START_TS))
   
+  # 场景1: 时间到了 (如果负载是个死循环，靠这个退出)
   if (( ELAPSED >= LOAD_SEC )) && [[ "$LOAD_ALIVE" -eq 1 ]]; then
     echo ">>> Load duration reached (${LOAD_SEC}s). Stopping perf..."
     kill -INT "$PERF_PID" 2>/dev/null || true
     LOAD_ALIVE=0
+    # 注意：这里不立刻 break，可能需要等 perf flush，或者让下面统一 break
+    # 但为了逻辑简单，通常这里可以让它自然走到下面的 RUN_SEC break，
+    # 或者如果你想更果断，也可以在这里 break。
+    # 保持原逻辑只需让 LOAD_ALIVE=0 即可。
   fi
 
+  # 场景2: 超过了总的安全缓冲时间 (强制退出)
   if (( ELAPSED >= RUN_SEC )); then
     echo ">>> Total monitor buffer time reached (${RUN_SEC}s). Exiting."
     break
   fi
 
+  # 场景3: 负载进程提前没了 (这是你要修改的核心部分)
   if [[ "$LOAD_ALIVE" -eq 1 ]]; then
       if ! kill -0 "$LOAD_PID" 2>/dev/null; then
         echo ">>> Workload finished early at ${ELAPSED}s (Process exited)."
-        echo ">>> Continuing to monitor idle system until ${RUN_SEC}s..."
-        LOAD_ALIVE=0 
+        echo ">>> Stopping Perf and exiting loop..."
+        
+        # [修改点] 立即发送 INT 信号给 Perf
+        kill -INT "$PERF_PID" 2>/dev/null || true
+        
+        # [修改点] 稍微给一点点时间让 perf 写入文件 (0.5s)，然后直接跳出
+        sleep 0.5 
+        break
       fi
   fi
 
   sleep 0.2
 done
+
+
+
 if [[ "$WORK_DONE" -eq 1 ]]; then
   wait "$LOAD_PID" 2>/dev/null || true
 fi
@@ -338,7 +367,7 @@ fi
 echo "Applying smart data trimming for duration: ${LOAD_SEC}s..."
 
 if [[ -f "$BOP_FILE" ]]; then
-    TRIM_THRESHOLD=$(awk -v t="$LOAD_SEC" 'BEGIN {print t + 0.5}')
+    TRIM_THRESHOLD=$(awk -v t="$LOAD_SEC" 'BEGIN {print t + 0.8}')
     
     awk -F, -v limit="$TRIM_THRESHOLD" '
         /^#/ { print; next }
