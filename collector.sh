@@ -1,12 +1,9 @@
-#!/bin/bash
+#!/usr/bin/env bash
+# collector.sh (最终参数透传版)
 # ----------------------------------------------------
-# collector.sh: 采集任务调度器 (静默版)
-# ----------------------------------------------------
-set -e
+set -euo pipefail
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-
-# --- 初始化 ---
+# --- 默认参数 ---
 TASK_ID=""
 UPLOAD_FILE_PATH=""
 CPU_LIMIT_PCT=100
@@ -16,9 +13,11 @@ COLLECT_FREQUENCY="1s"
 START_LOAD_PCT=0
 END_LOAD_PCT=0
 STEP_PCT=0
-OUTPUT_PATH="" 
+OUTPUT_PATH=""
 
-# --- 解析参数 ---
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+# --- 参数解析 ---
 while [ "$#" -gt 0 ]; do
     case "$1" in
         --id=*) TASK_ID="${1#*=}";;
@@ -35,14 +34,11 @@ while [ "$#" -gt 0 ]; do
     shift
 done
 
-# --- 校验 ---
 if [ -z "$TASK_ID" ] || [ -z "$UPLOAD_FILE_PATH" ] || [ -z "$OUTPUT_PATH" ]; then
-  # 如果参数不对，只输出一个简单的错误 JSON
   echo "{\"error\": \"Missing required arguments\"}"
   exit 1
 fi
 
-# 路径转绝对路径 (防止静默模式下相对路径出错找不到文件)
 if [ -f "$UPLOAD_FILE_PATH" ]; then
     ABS_UPLOAD_PATH="$(readlink -f "$UPLOAD_FILE_PATH")"
 else
@@ -54,9 +50,8 @@ ABS_OUTPUT_PATH="$(readlink -f "$OUTPUT_PATH")"
 
 AGENT_SCRIPT="${SCRIPT_DIR}/agent_executor.sh"
 
-# --- 1. 静默启动采集器 ---
-# > /dev/null 2>&1 屏蔽掉 agent 的所有 stdout 和 stderr
-# 如果 agent 失败，脚本会因为 set -e 退出，或者我们可以捕获错误
+# --- 1. 启动采集 ---
+# 使用 > /dev/null 屏蔽日志，保证只输出最终 JSON
 bash "$AGENT_SCRIPT" \
     --id="$TASK_ID" \
     --upload-file-path="$ABS_UPLOAD_PATH" \
@@ -69,7 +64,7 @@ bash "$AGENT_SCRIPT" \
     --end-load-pct="$END_LOAD_PCT" \
     --step-pct="$STEP_PCT" > /dev/null 2>&1
 
-# --- 2. 静默计算 BOPs ---
+# --- 2. 计算结果 ---
 ARCH_RAW=$(uname -m)
 if [[ "$ARCH_RAW" == "x86_64" ]]; then ARCH_NAME="x86"; else ARCH_NAME="arm"; fi
 
@@ -84,11 +79,10 @@ fi
 
 CALC_SCRIPT="${SCRIPT_DIR}/calc_metrics.py"
 
-# 计算并写入结果文件
-python3 "$CALC_SCRIPT" "$BOP_FILE" "$ARCH_NAME" > "$ABS_OUTPUT_PATH"
+
+python3 "$CALC_SCRIPT" "$BOP_FILE" "$ARCH_NAME" "$COLLECT_FREQUENCY" > "$ABS_OUTPUT_PATH"
 
 if [ $? -eq 0 ]; then
-    # --- 唯一允许的输出：打印结果文件内容 ---
     cat "$ABS_OUTPUT_PATH"
     exit 0
 else
