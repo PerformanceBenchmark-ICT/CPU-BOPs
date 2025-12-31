@@ -19,8 +19,7 @@ CPU-BOPs 是一组用于在 Linux CPU 平台上测量负载程序运行周期消
 ### 3、如果是物理机，具备以上两点可以直接运行；如果是虚拟机，则需要额外开通以下权限，操作步骤如下：
 
 
-
-#### 1)在openstack控制节点执行：
+ 1)在openstack控制节点执行：
 
 openstack server show <云主机uuid> |grep OS-EXT-SRV-ATTR:instance_name
 
@@ -31,11 +30,11 @@ openstack server show <云主机uuid> |grep OS-EXT-SRV-ATTR:instance_name
 
 然后到虚拟机所在的物理机上执行：virsh edit instance-00000c3c
 
-#### 2)找到这个`<cpu mode='host-passthrough'>`
+ 2)找到这个`<cpu mode='host-passthrough'>`
 
-#### 3)步骤2中红色字体表示的值即为需要修改的值。即cpu mode 改成 host-passthrough
+ 3)步骤2中红色字体表示的值即为需要修改的值。即cpu mode 改成 host-passthrough
 
-#### 4)重启这个虚拟机,执行如下命令：
+ 4)重启这个虚拟机,执行如下命令：
 
    `# virsh  reboot  <虚拟机ID或名称>`
    
@@ -193,6 +192,7 @@ CPU-BOPs 是一个 **面向系统性能测量与研究场景的实验工具**，
 * 行为可复现
 * 资源可控
 * 数据可分析
+
 
 
 
