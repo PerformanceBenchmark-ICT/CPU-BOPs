@@ -13,8 +13,8 @@ CPU-BOPs 是一组用于在 Linux CPU 平台上测量负载程序运行周期消
 
 | 工具名称 | 作用 |
 | :--- | :--- |
-| **perf** | 采集硬件性能事件 (BOPs) |
-| **cgroup-tools** | 管理资源隔离组 (`cgcreate`) | 
+| **perf** | 采集硬件性能事件  |
+| **cgroup-tools** | 管理资源隔离组 | 
 
 3、如果是在物理机运行，具备以上两点可以直接运行；如果是虚拟机运行，则需要额外开通以下权限，操作步骤如下：
 
@@ -46,7 +46,7 @@ openstack server show <云主机uuid> |grep OS-EXT-SRV-ATTR:instance_name
 
 在系统性能实验与算力度量中，常常需要回答以下问题：
 * 不同的CPU平台上如何从用户视角实现算力度量的指标统一？
-* 不同的CPU平台上如何从用户视角实现算力的单一计量？
+
 
 
 CPU-BOPs 提供了一种 轻量、可复现、面向真实负载的算力消耗的采集方案
@@ -187,6 +187,7 @@ time,value,unit,event,command,pid,cpu,metric_value,metric_unit
 说明
 
 CPU-BOPs 是一个 面向系统性能测量与研究场景的实验工具
+
 
 
 
